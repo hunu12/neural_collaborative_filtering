@@ -12,19 +12,22 @@ import theano
 import theano.tensor as T
 import keras
 from keras import backend as K
-from keras import initializations
-from keras.regularizers import l2, activity_l2
-from keras.models import Sequential, Graph, Model
+from keras import initializers
+from keras.regularizers import l2
+from keras.models import Sequential, Model
 from keras.layers.core import Dense, Lambda, Activation
-from keras.layers import Embedding, Input, Dense, merge, Reshape, Merge, Flatten, Dropout
+from keras.layers import Embedding, Input, Dense, Reshape, Flatten, Dropout, Concatenate
 from keras.constraints import maxnorm
-from keras.optimizers import Adagrad, Adam, SGD, RMSprop
+from tensorflow.keras.optimizers import Adagrad, Adam, SGD, RMSprop
 from evaluate import evaluate_model
 from Dataset import Dataset
 from time import time
 import sys
 import argparse
 import multiprocessing as mp
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 #################### Arguments ####################
 def parse_args():
@@ -53,8 +56,6 @@ def parse_args():
                         help='Whether to save the trained model.')
     return parser.parse_args()
 
-def init_normal(shape, name=None):
-    return initializations.normal(shape, scale=0.01, name=name)
 
 def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     assert len(layers) == len(reg_layers)
@@ -63,28 +64,28 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     user_input = Input(shape=(1,), dtype='int32', name = 'user_input')
     item_input = Input(shape=(1,), dtype='int32', name = 'item_input')
 
-    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = layers[0]/2, name = 'user_embedding',
-                                  init = init_normal, W_regularizer = l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = layers[0]/2, name = 'item_embedding',
-                                  init = init_normal, W_regularizer = l2(reg_layers[0]), input_length=1)   
+    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = int(layers[0]/2), name = 'user_embedding',
+                                  embeddings_initializer = initializers.RandomNormal(stddev=0.01), embeddings_regularizer = l2(reg_layers[0]), input_length=1)
+    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = int(layers[0]/2), name = 'item_embedding',
+                                  embeddings_initializer = initializers.RandomNormal(stddev=0.01), embeddings_regularizer = l2(reg_layers[0]), input_length=1)   
     
     # Crucial to flatten an embedding vector!
     user_latent = Flatten()(MLP_Embedding_User(user_input))
     item_latent = Flatten()(MLP_Embedding_Item(item_input))
     
     # The 0-th layer is the concatenation of embedding layers
-    vector = merge([user_latent, item_latent], mode = 'concat')
+    vector = Concatenate(axis=1)([user_latent, item_latent])
     
     # MLP layers
-    for idx in xrange(1, num_layer):
-        layer = Dense(layers[idx], W_regularizer= l2(reg_layers[idx]), activation='relu', name = 'layer%d' %idx)
+    for idx in range(1, num_layer):
+        layer = Dense(layers[idx], kernel_regularizer= l2(reg_layers[idx]), activation='relu', name = 'layer%d' %idx)
         vector = layer(vector)
         
     # Final prediction layer
-    prediction = Dense(1, activation='sigmoid', init='lecun_uniform', name = 'prediction')(vector)
+    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name = 'prediction')(vector)
     
-    model = Model(input=[user_input, item_input], 
-                  output=prediction)
+    model = Model(inputs=[user_input, item_input], 
+                  outputs=prediction)
     
     return model
 
@@ -97,9 +98,9 @@ def get_train_instances(train, num_negatives):
         item_input.append(i)
         labels.append(1)
         # negative instances
-        for t in xrange(num_negatives):
+        for t in range(num_negatives):
             j = np.random.randint(num_items)
-            while train.has_key((u, j)):
+            while (u, j) in train:
                 j = np.random.randint(num_items)
             user_input.append(u)
             item_input.append(j)
@@ -135,13 +136,13 @@ if __name__ == '__main__':
     # Build model
     model = get_model(num_users, num_items, layers, reg_layers)
     if learner.lower() == "adagrad": 
-        model.compile(optimizer=Adagrad(lr=learning_rate), loss='binary_crossentropy')
+        model.compile(optimizer=Adagrad(learning_rate=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "rmsprop":
-        model.compile(optimizer=RMSprop(lr=learning_rate), loss='binary_crossentropy')
+        model.compile(optimizer=RMSprop(learning_rate=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "adam":
-        model.compile(optimizer=Adam(lr=learning_rate), loss='binary_crossentropy')
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss='binary_crossentropy')
     else:
-        model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')    
+        model.compile(optimizer=SGD(learning_rate=learning_rate), loss='binary_crossentropy')    
     
     # Check Init performance
     t1 = time()
@@ -151,7 +152,7 @@ if __name__ == '__main__':
     
     # Train model
     best_hr, best_ndcg, best_iter = hr, ndcg, -1
-    for epoch in xrange(epochs):
+    for epoch in range(epochs):
         t1 = time()
         # Generate training instances
         user_input, item_input, labels = get_train_instances(train, num_negatives)
@@ -159,7 +160,7 @@ if __name__ == '__main__':
         # Training        
         hist = model.fit([np.array(user_input), np.array(item_input)], #input
                          np.array(labels), # labels 
-                         batch_size=batch_size, nb_epoch=1, verbose=0, shuffle=True)
+                         batch_size=batch_size, epochs=1, verbose=0, shuffle=True)
         t2 = time()
 
         # Evaluation
