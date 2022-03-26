@@ -18,9 +18,11 @@ from time import time
 _model = None
 _testRatings = None
 _testNegatives = None
+_userInfo = None
+_itemInfo = None
 _K = None
 
-def evaluate_model(model, testRatings, testNegatives, K, num_thread):
+def evaluate_model(model, testRatings, testNegatives, K, num_thread, userInfo=None, itemInfo=None):
     """
     Evaluate the performance (Hit_Ratio, NDCG) of top-K recommendation
     Return: score of each test rating.
@@ -28,10 +30,14 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
     global _model
     global _testRatings
     global _testNegatives
+    global _userInfo
+    global _itemInfo
     global _K
     _model = model
     _testRatings = testRatings
     _testNegatives = testNegatives
+    _userInfo = userInfo
+    _itemInfo = itemInfo
     _K = K
         
     hits, ndcgs = [],[]
@@ -59,7 +65,10 @@ def eval_one_rating(idx):
     # Get prediction scores
     map_item_score = {}
     users = np.full(len(items), u, dtype = 'int32')
-    predictions = _model.predict([users, np.array(items)], 
+    inputs = [users, np.array(items)]
+    inputs.append(_userInfo[users] if _userInfo is not None else np.empty((len(items),0)))
+    inputs.append(_itemInfo[items] if _itemInfo is not None else np.empty((len(items),0)))
+    predictions = _model.predict(inputs, 
                                  batch_size=100, verbose=0)
     for i in range(len(items)):
         item = items[i]

@@ -12,7 +12,7 @@ class Dataset(object):
     classdocs
     '''
 
-    def __init__(self, path):
+    def __init__(self, path, meta_info=False):
         '''
         Constructor
         '''
@@ -22,6 +22,12 @@ class Dataset(object):
         assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
+        self.meta_info = meta_info
+        if meta_info:
+            self.userInfo = self.load_user_info_file_as_matrix(path + ".user.info")
+            self.itemInfo = self.load_item_info_file_as_matrix(path + ".item.info")
+        else:
+            self.userInfo, self.itemInfo = None, None
         
     def load_rating_file_as_list(self, filename):
         ratingList = []
@@ -72,4 +78,40 @@ class Dataset(object):
                 if (rating > 0):
                     mat[user, item] = 1.0
                 line = f.readline()    
+        return mat
+
+    def load_user_info_file_as_matrix(self, filename):
+        mat = np.zeros((self.num_users, 8))
+        with open(filename, "r") as f:
+            line = f.readline()
+            while line != None and line != "":
+                arr = line.split("\t")
+                uid = int(arr[0])
+
+                mat[uid, 0] = float(arr[1])         # 0
+                mat[uid, 1 + int(arr[2])] = 1.0     # 1 ~ 6
+                mat[uid, 7] = float(arr[3])         # 7
+
+                if int(arr[1]) > 1 or int(arr[2]) > 5 or int(arr[3]) > 1:
+                    import pdb; pdb.set_trace()
+
+                line = f.readline()
+        return mat
+        
+    def load_item_info_file_as_matrix(self, filename):
+        mat = np.zeros((self.num_items, 72))
+        with open(filename, "r") as f:
+            line = f.readline()
+            while line != None and line != "":
+                arr = line.split("\t")
+                iid = int(arr[0])
+
+                mat[iid, int(arr[1])] = 1.0             # 0 ~ 8
+                mat[iid, int(arr[2]) + 9] = 1.0         # 9 ~ 15
+                mat[iid, int(arr[3]) + 16] = 1.0        # 16 ~ 25
+                mat[iid, int(arr[4]) + 26] = 1.0        # 26 ~ 42
+                mat[iid, int(arr[5]) + 43] = 1.0        # 43 ~ 71
+                if int(arr[1]) > 8 or int(arr[2]) > 6 or int(arr[3]) > 9  or int(arr[4]) > 16 or int(arr[5]) > 28:
+                    import pdb; pdb.set_trace()
+                line = f.readline()
         return mat
