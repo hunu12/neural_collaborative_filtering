@@ -12,7 +12,7 @@ class Dataset(object):
     classdocs
     '''
 
-    def __init__(self, path, meta_info=False):
+    def __init__(self, path):
         '''
         Constructor
         '''
@@ -22,15 +22,11 @@ class Dataset(object):
         assert len(self.testRatings) == len(self.testNegatives)
         
         self.num_users, self.num_items = self.trainMatrix.shape
-        self.meta_info = meta_info
         try:
             self.userInfo, self.trainInteractionLevel = self.load_user_info_file_as_matrix(path + ".user.info")
             self.itemInfo = self.load_item_info_file_as_matrix(path + ".item.info")
         except:
             self.userInfo, self.itemInfo, self.trainInteractionLevel = None, None, None
-        
-        if not meta_info:
-            self.userInfo, self.itemInfo = None, None
         
     def load_rating_file_as_list(self, filename):
         ratingList = []
