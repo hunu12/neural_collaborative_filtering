@@ -23,11 +23,14 @@ class Dataset(object):
         
         self.num_users, self.num_items = self.trainMatrix.shape
         self.meta_info = meta_info
-        if meta_info:
+        try:
             self.userInfo, self.trainInteractionLevel = self.load_user_info_file_as_matrix(path + ".user.info")
             self.itemInfo = self.load_item_info_file_as_matrix(path + ".item.info")
-        else:
+        except:
             self.userInfo, self.itemInfo, self.trainInteractionLevel = None, None, None
+        
+        if not meta_info:
+            self.userInfo, self.itemInfo = None, None
         
     def load_rating_file_as_list(self, filename):
         ratingList = []

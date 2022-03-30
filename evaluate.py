@@ -93,3 +93,11 @@ def getNDCG(ranklist, gtItem):
         if item == gtItem:
             return math.log(2) / math.log(i+2)
     return 0
+
+def evaluate_per_interactionLevel(hits, ndcgs, interactionLevel):
+    name = ['LOW', 'MID', 'HIGH']
+    if interactionLevel is not None:
+        ret = [(name[i], hits[np.where(trainInteractionLevel==i)].mean(), ndcgs[np.where(trainInteractionLevel==i)].mean()) for i in range(3)]
+    else:
+        ret = [(LOW, -1.0, -1.0) for i in range(3)]
+    return ret 

@@ -18,7 +18,7 @@ from tensorflow.keras.optimizers import Adagrad, Adam, SGD, RMSprop
 from keras.regularizers import l2
 import tensorflow as tf
 from Dataset import Dataset
-from evaluate import evaluate_model
+from evaluate import evaluate_model, evaluate_per_interactionLevel
 from time import time
 import multiprocessing as mp
 import sys
@@ -132,10 +132,10 @@ if __name__ == '__main__':
     # Loading data
     t1 = time()
     dataset = Dataset(args.path + args.dataset, meta_info=args.meta_info)
-    train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
+    train, testRatings, testNegatives, trainInteractionLevel = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives, dataset.trainInteractionLevel
     userInfo, itemInfo = dataset.userInfo, dataset.itemInfo
-    lenUserInfo = userInfo.shape[1] if userInfo is not None else 0
-    lenItemInfo = itemInfo.shape[1] if itemInfo is not None else 0
+    lenUserInfo = userInfo.shape[1] if args.meta_info else 0
+    lenItemInfo = itemInfo.shape[1] if args.meta_info else 0
     num_users, num_items = train.shape
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
@@ -156,6 +156,10 @@ if __name__ == '__main__':
     t1 = time()
     (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads, userInfo=userInfo, itemInfo=itemInfo)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
+    hr_ndcg_per_il = evaluate_per_interactionLevel(hits, ndcgs, interactionLevel)
+    print('Init: HR = %.4f, NDCG = %.4f' % (hr, ndcg))
+    for name, hr_per_il, ndcg_per_il in hr_ndcg_per_il.items:
+        print(f'\t{name:4s} HR = {hr_per_il:.4f}, NDCG = {ndcg_per_il:.4f}')
     #mf_embedding_norm = np.linalg.norm(model.get_layer('user_embedding').get_weights())+np.linalg.norm(model.get_layer('item_embedding').get_weights())
     #p_norm = np.linalg.norm(model.get_layer('prediction').get_weights()[0])
     print('Init: HR = %.4f, NDCG = %.4f\t [%.1f s]' % (hr, ndcg, time()-t1))
@@ -169,8 +173,8 @@ if __name__ == '__main__':
         
         # Training
         inputs = [np.array(user_input), np.array(item_input)]
-        inputs.append(userInfo[user_input] if userInfo is not None else np.empty((len(user_input),0)))
-        inputs.append(itemInfo[item_input] if itemInfo is not None else np.empty((len(user_input),0)))
+        inputs.append(userInfo[user_input] if args.meta_info else np.empty((len(user_input),0)))
+        inputs.append(itemInfo[item_input] if args.meta_info else np.empty((len(user_input),0)))
         hist = model.fit([inputs], #input
                          np.array(labels), # labels 
                          batch_size=batch_size, epochs=1, verbose=0, shuffle=True)
@@ -179,9 +183,12 @@ if __name__ == '__main__':
         # Evaluation
         if epoch %verbose == 0:
             (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads, userInfo=userInfo, itemInfo=itemInfo)
+            hr_ndcg_per_il = evaluate_per_interactionLevel(hits, ndcgs, interactionLevel)
             hr, ndcg, loss = np.array(hits).mean(), np.array(ndcgs).mean(), hist.history['loss'][0]
             print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]' 
                   % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))
+            for name, hr_per_il, ndcg_per_il in hr_ndcg_per_il.items:
+                print(f'\t{name:4s} HR = {hr_per_il:.4f}, NDCG = {ndcg_per_il:.4f}')
             if hr > best_hr:
                 best_hr, best_ndcg, best_iter = hr, ndcg, epoch
                 if args.out > 0:
