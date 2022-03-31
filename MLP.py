@@ -54,8 +54,10 @@ def parse_args():
                         help='Show performance per X iterations')
     parser.add_argument('--out', type=int, default=1,
                         help='Whether to save the trained model.')
-    parser.add_argument('--meta_info', type=int, default=0,
-                        help='Whether to use meta data information of user and item')
+    parser.add_argument('--user_meta_info', type=int, default=0,
+                        help='Whether to use meta data information of user')
+    parser.add_argument('--item_meta_info', type=int, default=0,
+                        help='Whether to use meta data information of item')
     return parser.parse_args()
 
 

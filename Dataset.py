@@ -6,6 +6,7 @@ Processing datasets.
 '''
 import scipy.sparse as sp
 import numpy as np
+import traceback
 
 class Dataset(object):
     '''
@@ -26,7 +27,9 @@ class Dataset(object):
             self.userInfo, self.trainInteractionLevel = self.load_user_info_file_as_matrix(path + ".user.info")
             self.itemInfo = self.load_item_info_file_as_matrix(path + ".item.info")
         except:
+            traceback.print_exc()
             self.userInfo, self.itemInfo, self.trainInteractionLevel = None, None, None
+
         
     def load_rating_file_as_list(self, filename):
         ratingList = []

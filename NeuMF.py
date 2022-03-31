@@ -60,8 +60,10 @@ def parse_args():
                         help='Specify the pretrain model file for MF part. If empty, no pretrain will be used')
     parser.add_argument('--mlp_pretrain', nargs='?', default='',
                         help='Specify the pretrain model file for MLP part. If empty, no pretrain will be used')
-    parser.add_argument('--meta_info', type=int, default=0,
-                        help='Whether to use meta data information of user and item')
+    parser.add_argument('--user_meta_info', type=int, default=0,
+                        help='Whether to use meta data information of user')
+    parser.add_argument('--item_meta_info', type=int, default=0,
+                        help='Whether to use meta data information of item')
     return parser.parse_args()
 
 
